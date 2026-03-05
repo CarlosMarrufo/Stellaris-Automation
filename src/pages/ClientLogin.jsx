@@ -34,11 +34,9 @@ export default function ClientLogin() {
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center space-x-3 mb-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-orange-500 rounded-lg flex items-center justify-center">
-              <div className="w-7 h-7 border-2 border-white rounded"></div>
-            </div>
+<img src="/stellaris_logo_solo.png" alt="Stellaris Logo" className="w-10 h-10 object-contain" />
             <div className="text-left">
-              <div className="text-2xl font-bold text-white">RoboTech Solutions</div>
+              <div className="text-2xl font-bold text-white">Stellaris Automation</div>
               <div className="text-sm text-slate-400">Portal de Clientes</div>
             </div>
           </div>
@@ -110,15 +108,15 @@ export default function ClientLogin() {
           <div className="mt-6 pt-6 border-t border-slate-200">
             <p className="text-sm text-slate-600 text-center">
               ¿Necesita acceso? Contacte a nuestro equipo al{' '}
-              <a href="mailto:soporte@robotech.com" className="text-blue-600 hover:text-blue-700 font-medium">
-                soporte@robotech.com
+              <a href="contacto@stellarisautomation.com" className="text-blue-600 hover:text-blue-700 font-medium">
+                contacto@stellarisautomation.com
               </a>
             </p>
           </div>
         </div>
 
         <p className="text-center text-slate-400 text-sm mt-6">
-          Portal exclusivo para clientes con contrato de servicio
+          Portal exclusivo para clientes preferentes
         </p>
       </div>
     </div>

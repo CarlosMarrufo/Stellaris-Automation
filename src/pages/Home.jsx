@@ -13,15 +13,16 @@ export default function Home() {
 
     if (section === 'contacto') {
       setTimeout(() => {
-        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-      }, 100);
+        const el = document.getElementById('contacto');
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+      }, 0);
     }
 
     if (section === 'servicios') {
       setTimeout(() => {
         const el = document.getElementById('servicios');
         if (el) el.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
+      }, 0);
     }
 
     if (!section) {

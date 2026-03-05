@@ -51,39 +51,6 @@ export default function ContratosUptime() {
       idealClient: 'Plantas automotrices Tier 1, operaciones 24/7, equipos sin redundancia donde la falla es inaceptable.',
       criticality: 'Máxima',
       model: 'Contrato anual premium con pago mensual fijo, puede incluir penalizaciones/bonificaciones por cumplimiento de SLA'
-    },
-    {
-      title: 'Uptime Corporativo por Planta',
-      problem: 'Grupos industriales con múltiples plantas que necesitan estandarizar su gestión de mantenimiento robótico, consolidar proveedores y tener visibilidad corporativa del estado de todos sus activos.',
-      includes: [
-        'Cobertura de toda la flota robótica bajo un solo contrato',
-        'Niveles de servicio diferenciados por criticidad de cada equipo',
-        'Dashboard corporativo de estado de flota',
-        'Coordinación con paros programados de cada planta',
-        'Gestor de cuenta dedicado',
-        'Reuniones ejecutivas con dirección de manufactura',
-        'Benchmarking entre plantas del grupo'
-      ],
-      differentiator: 'Un solo contrato, una sola factura, una sola responsabilidad para toda la robótica del grupo, con economías de escala y consistencia de servicio entre plantas.',
-      idealClient: 'Grupos industriales con presencia multi-sitio, corporativos en proceso de centralizar gestión de activos, empresas con más de 50 robots distribuidos en varias plantas.',
-      criticality: 'Estratégica',
-      model: 'Contrato marco corporativo con precios por robot/mes según nivel de criticidad, revisión anual de alcance y condiciones'
-    },
-    {
-      title: 'Uptime con Reserva de Refacciones',
-      problem: 'Situaciones donde incluso con respuesta inmediata del técnico, la reparación se retrasa días o semanas esperando una refacción crítica que debe importarse.',
-      includes: [
-        'Todo lo del nivel Uptime contratado',
-        'Análisis de criticidad de componentes específicos de los robots cubiertos',
-        'Inventario dedicado de refacciones críticas almacenado para uso exclusivo',
-        'Reposición garantizada dentro de tiempos acordados',
-        'Costo de inventario distribuido en mensualidades',
-        'Rotación de inventario para evitar obsolescencia'
-      ],
-      differentiator: 'Elimina el factor "esperar la refacción" que es frecuentemente la causa real de paros prolongados, convirtiendo reparaciones de semanas en reparaciones de horas.',
-      idealClient: 'Plantas con robots de generaciones anteriores con refacciones difíciles de conseguir, operaciones donde el costo de paro por día excede ampliamente el costo de mantener inventario de respaldo.',
-      criticality: 'Crítica',
-      model: 'Adición a cualquier nivel de Uptime, con costo mensual adicional basado en valor del inventario reservado'
     }
   ];
 

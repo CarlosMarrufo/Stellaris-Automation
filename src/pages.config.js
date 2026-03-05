@@ -4,6 +4,7 @@ import MantenimientoCorrectivo from './pages/MantenimientoCorrectivo';
 import Diagnosticos from './pages/Diagnosticos';
 import ContratosUptime from './pages/ContratosUptime';
 import SuministroRefacciones from './pages/SuministroRefacciones';
+import ProyectosEIntegracion from './pages/ProyectosEIntegracion.jsx';
 import ClientLogin from './pages/ClientLogin.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import __Layout from './pages/Layout.jsx';
@@ -16,6 +17,7 @@ export const PAGES = {
     "Diagnosticos": Diagnosticos,
     "ContratosUptime": ContratosUptime,
     "SuministroRefacciones": SuministroRefacciones,
+    "ProyectosEIntegracion": ProyectosEIntegracion,
 }
 
 // Páginas que no usan el Layout público (sin header/footer)

@@ -22,9 +22,7 @@ export default function Layout({ children, currentPageName }) {
           <div className="flex justify-between items-center h-20">
             {/* Logo */}
             <Link to={createPageUrl('Home')} className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-orange-500 rounded-lg flex items-center justify-center">
-                <div className="w-6 h-6 border-2 border-white rounded"></div>
-              </div>
+              <img src="/stellaris_logo_solo.png" alt="Stellaris Logo" className="w-10 h-10 object-contain" />
               <div>
                 <div className="text-xl font-bold tracking-tight">Stellaris Automation</div>
                 <div className="text-xs text-slate-400">Robótica Industrial</div>
@@ -123,9 +121,7 @@ export default function Layout({ children, currentPageName }) {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div className="md:col-span-2">
               <div className="flex items-center space-x-3 mb-4">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-orange-500 rounded-lg flex items-center justify-center">
-                  <div className="w-6 h-6 border-2 border-white rounded"></div>
-                </div>
+                <img src="/stellaris_logo_solo.png" alt="Stellaris Logo" className="w-10 h-10 object-contain" />
                 <div>
                   <div className="text-lg font-bold text-white">Stellaris Automation</div>
                   <div className="text-xs text-slate-500">Robótica Industrial</div>
@@ -155,7 +151,7 @@ export default function Layout({ children, currentPageName }) {
             <div>
               <h3 className="text-white font-semibold mb-4">Contacto</h3>
               <ul className="space-y-2 text-sm">
-                <li>ventas@stellarisautomation.com</li>
+                <li>contacto@stellarisautomation.com</li>
                 <li>+52 (81) 8351-9650</li>
                 <li>Lun - Vie: 8:00 - 18:00</li>
                 <li className="pt-2 text-xs text-slate-500">Servicio 24/7 disponible con contrato</li>

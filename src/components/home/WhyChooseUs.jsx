@@ -123,7 +123,7 @@ export default function WhyChooseUs() {
 
       {/* CTA + Contact Form Section */}
       <div
-        className="py-14 text-white"
+        className="py-14 text-white" id="contacto"
         style={{ background: 'linear-gradient(135deg, #1a0a3e 0%, #3d1478 35%, #9b3010 70%, #d4560a 100%)' }}
       >
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">

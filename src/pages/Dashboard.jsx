@@ -6,7 +6,6 @@ import { Package, DollarSign, Activity, FileText, AlertCircle, Database, LogOut 
 import { Button } from '@/components/ui/button';
 
 import RefaccionesTab from '../components/dashboard/RefaccionesTab';
-import PreciosTab from '../components/dashboard/PreciosTab';
 import ResumenVidaTab from '../components/dashboard/ResumenVidaTab';
 import TicketTab from '../components/dashboard/TicketTab';
 import TicketsPendientesTab from '../components/dashboard/TicketsPendientesTab';

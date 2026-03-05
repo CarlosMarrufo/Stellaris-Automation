@@ -49,7 +49,7 @@ const services = [
     icon: puzzleRobot,
     title: 'Proyectos e Integración',
     description: 'Ingeniería, integración y arranque de nuevos proyectos de automatización robótica.',
-    page: 'SuministroRefacciones',
+    page: 'ProyectosEIntegracion',
     color: 'orange',
     gradient: 'from-orange-400 to-orange-700'
   }

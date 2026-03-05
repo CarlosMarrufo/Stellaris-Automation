@@ -31,8 +31,11 @@ export default function HeroSection() {
               , {' '} SOPORTE Y CRECIMIENTO EN UN SOLO LUGAR
             </h1>
 
+            <p className="text-xl text-slate-300 leading-relaxed max-w-2xl">
+              Soluciones integrales en automatización industrial. Venta e integración de robots Panasonic.
+            </p>
             <p className="text-xl text-slate-300 leading-relaxed mb-8 max-w-2xl">
-              Soluciones integrales en automatización industrial. Venta e integración de robots Panasonic. Mantenimiento especializado a robots de 6 ejes.
+              Mantenimiento especializado a robots de 6 ejes.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 mb-12">
@@ -53,7 +56,7 @@ export default function HeroSection() {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
               <div className="border-l-2 border-blue-500 pl-4">
                 <div className="text-3xl font-bold text-white">24/7</div>
                 <div className="text-sm text-slate-400 mt-1">Soporte Crítico</div>
