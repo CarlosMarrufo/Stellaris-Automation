@@ -13,6 +13,7 @@
 
 import { Router } from 'express';
 import { z } from 'zod';
+import bcrypt from 'bcrypt';
 import prisma from '../lib/prisma.js';
 
 const router = Router();
@@ -367,6 +368,186 @@ router.patch('/admin/cotizaciones/:id', async (req, res) => {
     if (err.code === 'P2025') return res.status(404).json({ error: 'Cotización no encontrada' });
     console.error('[admin/cotizaciones PATCH]', err instanceof Error ? err.message : String(err));
     return res.status(500).json({ error: 'Error al actualizar cotización' });
+  }
+});
+
+// ─── Schemas: usuarios ───────────────────────────────────────────────────────
+
+const usuarioCreateSchema = z.object({
+  idCliente: z.number().int().positive(),
+  nombre:    z.string().min(2).max(120),
+  correo:    z.string().email().max(200),
+  telefono:  z.string().max(40).optional().default(''),
+  password:  z.string().min(6, 'La contraseña debe tener al menos 6 caracteres').max(200),
+});
+
+const usuarioPatchSchema = z.object({
+  nombre:   z.string().min(2).max(120).optional(),
+  correo:   z.string().email().max(200).optional(),
+  telefono: z.string().max(40).optional(),
+  password: z.string().min(6).max(200).optional(),
+});
+
+// ─── GET /api/admin/clientes/:id/usuarios ────────────────────────────────────
+
+router.get('/admin/clientes/:id/usuarios', async (req, res) => {
+  const idCliente = parseInt(req.params.id, 10);
+  if (isNaN(idCliente)) return res.status(400).json({ error: 'ID inválido' });
+
+  try {
+    const usuarios = await prisma.usuario.findMany({
+      where:   { idCliente },
+      orderBy: { nombre: 'asc' },
+    });
+
+    const correos = usuarios.map((u) => u.correo);
+    const cuentas = correos.length > 0
+      ? await prisma.cuenta.findMany({
+          where:  { correo: { in: correos } },
+          select: { correo: true, activo: true, idCuenta: true },
+        })
+      : [];
+
+    const byCorreo = Object.fromEntries(cuentas.map((c) => [c.correo, c]));
+
+    return res.json(usuarios.map((u) => ({
+      id:           u.idUsuario,
+      nombre:       u.nombre,
+      correo:       u.correo,
+      telefono:     u.telefono ?? '',
+      activo:       u.activo,
+      portalActivo: byCorreo[u.correo]?.activo ?? false,
+      idCuenta:     byCorreo[u.correo]?.idCuenta ?? null,
+    })));
+  } catch (err) {
+    console.error('[admin/clientes/:id/usuarios]', err instanceof Error ? err.message : String(err));
+    return res.status(500).json({ error: 'Error al obtener usuarios' });
+  }
+});
+
+// ─── POST /api/admin/usuarios ─────────────────────────────────────────────────
+
+router.post('/admin/usuarios', async (req, res) => {
+  const parsed = usuarioCreateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Datos inválidos', details: parsed.error.flatten().fieldErrors });
+  }
+
+  const { idCliente, nombre, correo, telefono, password } = parsed.data;
+
+  try {
+    const exists = await prisma.cuenta.findUnique({ where: { correo } });
+    if (exists) return res.status(409).json({ error: 'El correo ya está registrado en el portal' });
+
+    const rolUsuario = await prisma.rol.findFirst({
+      where:   { nombre: { not: 'Admin' } },
+      orderBy: { idRol: 'asc' },
+    });
+    if (!rolUsuario) return res.status(500).json({ error: 'No se encontró rol de usuario' });
+
+    const hash = await bcrypt.hash(password, 12);
+
+    await prisma.$transaction([
+      prisma.usuario.create({
+        data: { nombre, correo, telefono: telefono || null, idCliente, idRol: rolUsuario.idRol, activo: true },
+      }),
+      prisma.cuenta.create({
+        data: { nombre, correo, passwordHash: hash, idRol: rolUsuario.idRol, activo: true },
+      }),
+    ]);
+
+    return res.status(201).json({ success: true });
+  } catch (err) {
+    if (err.code === 'P2002') return res.status(409).json({ error: 'El correo ya está registrado' });
+    console.error('[admin/usuarios POST]', err instanceof Error ? err.message : String(err));
+    return res.status(500).json({ error: 'Error al crear usuario' });
+  }
+});
+
+// ─── PATCH /api/admin/usuarios/:id ───────────────────────────────────────────
+
+router.patch('/admin/usuarios/:id', async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+
+  const parsed = usuarioPatchSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Datos inválidos', details: parsed.error.flatten().fieldErrors });
+  }
+
+  try {
+    const usuario = await prisma.usuario.findUnique({ where: { idUsuario: id } });
+    if (!usuario) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+    const { nombre, correo, telefono, password } = parsed.data;
+
+    await prisma.usuario.update({
+      where: { idUsuario: id },
+      data: {
+        ...(nombre   !== undefined ? { nombre }                    : {}),
+        ...(correo   !== undefined ? { correo }                    : {}),
+        ...(telefono !== undefined ? { telefono: telefono || null } : {}),
+      },
+    });
+
+    const cuentaData = {};
+    if (nombre   !== undefined) cuentaData.nombre = nombre;
+    if (correo   !== undefined) cuentaData.correo = correo;
+    if (password !== undefined) cuentaData.passwordHash = await bcrypt.hash(password, 12);
+
+    if (Object.keys(cuentaData).length > 0) {
+      await prisma.cuenta.updateMany({ where: { correo: usuario.correo }, data: cuentaData });
+    }
+
+    return res.json({ success: true });
+  } catch (err) {
+    if (err.code === 'P2002') return res.status(409).json({ error: 'El correo ya está en uso' });
+    console.error('[admin/usuarios PATCH]', err instanceof Error ? err.message : String(err));
+    return res.status(500).json({ error: 'Error al actualizar usuario' });
+  }
+});
+
+// ─── DELETE /api/admin/usuarios/:id (desactivar) ─────────────────────────────
+
+router.delete('/admin/usuarios/:id', async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+
+  try {
+    const usuario = await prisma.usuario.findUnique({ where: { idUsuario: id } });
+    if (!usuario) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+    await prisma.$transaction([
+      prisma.usuario.update({ where: { idUsuario: id }, data: { activo: false } }),
+      prisma.cuenta.updateMany({ where: { correo: usuario.correo }, data: { activo: false } }),
+    ]);
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('[admin/usuarios DELETE]', err instanceof Error ? err.message : String(err));
+    return res.status(500).json({ error: 'Error al desactivar usuario' });
+  }
+});
+
+// ─── PUT /api/admin/usuarios/:id/reactivar ────────────────────────────────────
+
+router.put('/admin/usuarios/:id/reactivar', async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+
+  try {
+    const usuario = await prisma.usuario.findUnique({ where: { idUsuario: id } });
+    if (!usuario) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+    await prisma.$transaction([
+      prisma.usuario.update({ where: { idUsuario: id }, data: { activo: true } }),
+      prisma.cuenta.updateMany({ where: { correo: usuario.correo }, data: { activo: true } }),
+    ]);
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('[admin/usuarios reactivar]', err instanceof Error ? err.message : String(err));
+    return res.status(500).json({ error: 'Error al reactivar usuario' });
   }
 });
 

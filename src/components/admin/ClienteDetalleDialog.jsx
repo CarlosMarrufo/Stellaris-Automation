@@ -3,20 +3,22 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { X, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, ChevronDown, ChevronUp, Plus, Pencil, Trash2, RotateCcw } from 'lucide-react';
 
 // ─── Badge helpers ────────────────────────────────────────────────────────────
 
 function EstadoRobotBadge({ estado }) {
   const lc = (estado ?? '').toLowerCase();
   const map = {
-    activo:       'bg-green-100 text-green-800 border-green-200',
-    operativo:    'bg-green-100 text-green-800 border-green-200',
-    mantenimiento:'bg-yellow-100 text-yellow-800 border-yellow-200',
-    inactivo:     'bg-slate-100 text-slate-600 border-slate-200',
-    falla:        'bg-red-100 text-red-800 border-red-200',
+    activo:        'bg-green-100 text-green-800 border-green-200',
+    operativo:     'bg-green-100 text-green-800 border-green-200',
+    mantenimiento: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+    inactivo:      'bg-slate-100 text-slate-600 border-slate-200',
+    falla:         'bg-red-100 text-red-800 border-red-200',
   };
   const cls = map[lc] ?? 'bg-slate-100 text-slate-600 border-slate-200';
   return <Badge className={`${cls} border`}>{estado}</Badge>;
@@ -25,7 +27,7 @@ function EstadoRobotBadge({ estado }) {
 function EstadoTicketBadge({ estado }) {
   const lc = (estado ?? '').toLowerCase();
   let cls = 'bg-slate-100 text-slate-600 border-slate-200';
-  if (lc.includes('abiert'))   cls = 'bg-blue-100 text-blue-800 border-blue-200';
+  if (lc.includes('abiert'))                              cls = 'bg-blue-100 text-blue-800 border-blue-200';
   if (lc.includes('progreso') || lc.includes('proceso')) cls = 'bg-yellow-100 text-yellow-800 border-yellow-200';
   if (lc.includes('cerrad') || lc.includes('resuelto'))  cls = 'bg-slate-100 text-slate-600 border-slate-200';
   return <Badge className={`${cls} border`}>{estado}</Badge>;
@@ -46,10 +48,19 @@ function EstadoCotizacionBadge({ estado }) {
 
 export default function ClienteDetalleDialog({ cliente, onClose }) {
   const queryClient = useQueryClient();
-  const [expandedCot, setExpandedCot] = useState(null); // id of expanded cotizacion row
-  const [editingCot,  setEditingCot]  = useState(null); // { id, estado, notas }
-  const [savingTicket, setSavingTicket] = useState(null); // ticket id being saved
-  const [savingCot,    setSavingCot]    = useState(null); // cotizacion id being saved
+
+  // cotizaciones state
+  const [expandedCot,  setExpandedCot]  = useState(null);
+  const [editingCot,   setEditingCot]   = useState(null);
+  const [savingTicket, setSavingTicket] = useState(null);
+  const [savingCot,    setSavingCot]    = useState(null);
+
+  // usuarios state
+  const [userDialog,  setUserDialog]  = useState(null); // null | 'create' | 'edit'
+  const [selUser,     setSelUser]     = useState(null);
+  const [userForm,    setUserForm]    = useState({ nombre: '', correo: '', telefono: '', password: '' });
+  const [userSaving,  setUserSaving]  = useState(false);
+  const [userError,   setUserError]   = useState('');
 
   // ─── Queries ─────────────────────────────────────────────────────────────
 
@@ -71,6 +82,15 @@ export default function ClienteDetalleDialog({ cliente, onClose }) {
     },
   });
 
+  const { data: usuarios = [] } = useQuery({
+    queryKey: ['admin-usuarios', cliente.id],
+    queryFn:  async () => {
+      const res = await fetch(`/api/admin/clientes/${cliente.id}/usuarios`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Error al cargar usuarios');
+      return res.json();
+    },
+  });
+
   const estadoOpts = catalogos?.estados ?? [];
 
   // ─── Ticket status change ─────────────────────────────────────────────────
@@ -78,13 +98,12 @@ export default function ClienteDetalleDialog({ cliente, onClose }) {
   const handleTicketEstado = async (ticketId, idEstadoSolicitud) => {
     setSavingTicket(ticketId);
     try {
-      const res = await fetch(`/api/admin/tickets/${ticketId}`, {
+      await fetch(`/api/admin/tickets/${ticketId}`, {
         method:      'PATCH',
         credentials: 'include',
         headers:     { 'Content-Type': 'application/json' },
         body:        JSON.stringify({ idEstadoSolicitud: Number(idEstadoSolicitud) }),
       });
-      if (!res.ok) throw new Error('Error al actualizar ticket');
       await queryClient.invalidateQueries(['admin-cliente-detail', cliente.id]);
     } catch (err) {
       console.error(err);
@@ -99,19 +118,104 @@ export default function ClienteDetalleDialog({ cliente, onClose }) {
     if (!editingCot || editingCot.id !== cotId) return;
     setSavingCot(cotId);
     try {
-      const res = await fetch(`/api/admin/cotizaciones/${cotId}`, {
+      await fetch(`/api/admin/cotizaciones/${cotId}`, {
         method:      'PATCH',
         credentials: 'include',
         headers:     { 'Content-Type': 'application/json' },
         body:        JSON.stringify({ estado: editingCot.estado, notas: editingCot.notas }),
       });
-      if (!res.ok) throw new Error('Error al actualizar cotización');
       await queryClient.invalidateQueries(['admin-cliente-detail', cliente.id]);
       setEditingCot(null);
     } catch (err) {
       console.error(err);
     } finally {
       setSavingCot(null);
+    }
+  };
+
+  // ─── Usuario CRUD ─────────────────────────────────────────────────────────
+
+  const openCreateUser = () => {
+    setUserForm({ nombre: '', correo: '', telefono: '', password: '' });
+    setUserError('');
+    setSelUser(null);
+    setUserDialog('create');
+  };
+
+  const openEditUser = (u) => {
+    setSelUser(u);
+    setUserForm({ nombre: u.nombre, correo: u.correo, telefono: u.telefono ?? '', password: '' });
+    setUserError('');
+    setUserDialog('edit');
+  };
+
+  const closeUserDialog = () => {
+    setUserDialog(null);
+    setSelUser(null);
+    setUserError('');
+  };
+
+  const handleUserSave = async () => {
+    if (!userForm.nombre.trim() || !userForm.correo.trim()) {
+      setUserError('Nombre y correo son obligatorios');
+      return;
+    }
+    if (userDialog === 'create' && userForm.password.length < 6) {
+      setUserError('La contraseña debe tener al menos 6 caracteres');
+      return;
+    }
+    setUserSaving(true);
+    setUserError('');
+    try {
+      let res;
+      if (userDialog === 'create') {
+        res = await fetch('/api/admin/usuarios', {
+          method:      'POST',
+          credentials: 'include',
+          headers:     { 'Content-Type': 'application/json' },
+          body:        JSON.stringify({
+            idCliente: cliente.id,
+            nombre:    userForm.nombre.trim(),
+            correo:    userForm.correo.trim(),
+            telefono:  userForm.telefono.trim(),
+            password:  userForm.password,
+          }),
+        });
+      } else {
+        const body = {
+          nombre:   userForm.nombre.trim(),
+          correo:   userForm.correo.trim(),
+          telefono: userForm.telefono.trim(),
+        };
+        if (userForm.password) body.password = userForm.password;
+        res = await fetch(`/api/admin/usuarios/${selUser.id}`, {
+          method:      'PATCH',
+          credentials: 'include',
+          headers:     { 'Content-Type': 'application/json' },
+          body:        JSON.stringify(body),
+        });
+      }
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? 'Error al guardar');
+      }
+      await queryClient.invalidateQueries(['admin-usuarios', cliente.id]);
+      closeUserDialog();
+    } catch (err) {
+      setUserError(err.message);
+    } finally {
+      setUserSaving(false);
+    }
+  };
+
+  const handleUserToggle = async (u) => {
+    const url    = u.activo ? `/api/admin/usuarios/${u.id}` : `/api/admin/usuarios/${u.id}/reactivar`;
+    const method = u.activo ? 'DELETE' : 'PUT';
+    try {
+      await fetch(url, { method, credentials: 'include' });
+      await queryClient.invalidateQueries(['admin-usuarios', cliente.id]);
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -158,8 +262,14 @@ export default function ClienteDetalleDialog({ cliente, onClose }) {
           )}
 
           {detail && (
-            <Tabs defaultValue="robots" className="space-y-4">
-              <TabsList className="bg-slate-100 p-1">
+            <Tabs defaultValue="usuarios" className="space-y-4">
+              <TabsList className="bg-slate-100 p-1 flex-wrap h-auto gap-1">
+                <TabsTrigger value="usuarios" className="flex items-center gap-1.5">
+                  Usuarios
+                  <span className="bg-slate-200 text-slate-700 text-xs rounded-full px-1.5 py-0.5 leading-none">
+                    {usuarios.length}
+                  </span>
+                </TabsTrigger>
                 <TabsTrigger value="robots" className="flex items-center gap-1.5">
                   Robots
                   <span className="bg-slate-200 text-slate-700 text-xs rounded-full px-1.5 py-0.5 leading-none">
@@ -179,6 +289,82 @@ export default function ClienteDetalleDialog({ cliente, onClose }) {
                   </span>
                 </TabsTrigger>
               </TabsList>
+
+              {/* ─── Usuarios tab ────────────────────────────────────────── */}
+              <TabsContent value="usuarios">
+                <div className="flex justify-end mb-3">
+                  <Button onClick={openCreateUser} className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2">
+                    <Plus className="w-4 h-4" />
+                    Nuevo Usuario
+                  </Button>
+                </div>
+                {usuarios.length === 0 ? (
+                  <p className="text-slate-500 py-6 text-center">No hay usuarios registrados</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Nombre</TableHead>
+                          <TableHead>Correo</TableHead>
+                          <TableHead>Teléfono</TableHead>
+                          <TableHead className="text-center">Portal</TableHead>
+                          <TableHead className="text-center">Acciones</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {usuarios.map((u) => (
+                          <TableRow key={u.id}>
+                            <TableCell className="font-medium">{u.nombre}</TableCell>
+                            <TableCell className="text-sm text-slate-600">{u.correo}</TableCell>
+                            <TableCell className="text-sm">{u.telefono || '—'}</TableCell>
+                            <TableCell className="text-center">
+                              {u.portalActivo
+                                ? <Badge className="bg-green-100 text-green-800 border border-green-200">Activo</Badge>
+                                : <Badge className="bg-slate-100 text-slate-600 border border-slate-200">Inactivo</Badge>
+                              }
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center justify-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  title="Editar"
+                                  onClick={() => openEditUser(u)}
+                                  className="text-slate-600 hover:text-amber-600"
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </Button>
+                                {u.activo ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    title="Desactivar acceso"
+                                    onClick={() => handleUserToggle(u)}
+                                    className="text-slate-600 hover:text-red-600"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    title="Reactivar acceso"
+                                    onClick={() => handleUserToggle(u)}
+                                    className="text-slate-600 hover:text-green-600"
+                                  >
+                                    <RotateCcw className="w-4 h-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </TabsContent>
 
               {/* ─── Robots tab ─────────────────────────────────────────── */}
               <TabsContent value="robots">
@@ -283,33 +469,22 @@ export default function ClienteDetalleDialog({ cliente, onClose }) {
 
                       return (
                         <div key={c.id} className="border border-slate-200 rounded-lg overflow-hidden">
-                          {/* Row */}
                           <div className="grid grid-cols-[auto_1fr_auto_auto_auto_auto] items-center gap-3 px-4 py-3 bg-white">
-                            {/* Expand toggle */}
                             <button
                               className="text-slate-400 hover:text-slate-700"
                               onClick={() => setExpandedCot(isExpanded ? null : c.id)}
-                              aria-label="Expandir"
                             >
                               {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                             </button>
-
-                            {/* Info */}
                             <div>
                               <span className="font-mono text-xs text-slate-500">COT-{String(c.id).padStart(5, '0')}</span>
                               <span className="text-xs text-slate-500 ml-2">{c.solicitante}</span>
                               <span className="text-xs text-slate-400 ml-2">{c.fecha}</span>
                             </div>
-
-                            {/* Total */}
                             <span className="text-sm font-semibold text-slate-800">
                               ${c.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                             </span>
-
-                            {/* Estado badge */}
                             <EstadoCotizacionBadge estado={c.estado} />
-
-                            {/* Gestionar button */}
                             {!isEditing ? (
                               <Button
                                 size="sm"
@@ -342,7 +517,6 @@ export default function ClienteDetalleDialog({ cliente, onClose }) {
                             )}
                           </div>
 
-                          {/* Inline edit form */}
                           {isEditing && (
                             <div className="px-4 pb-3 bg-slate-50 border-t border-slate-100 flex flex-wrap gap-3 items-end">
                               <div>
@@ -374,7 +548,6 @@ export default function ClienteDetalleDialog({ cliente, onClose }) {
                             </div>
                           )}
 
-                          {/* Expanded items */}
                           {isExpanded && (
                             <div className="border-t border-slate-100 bg-slate-50 px-4 py-3">
                               {c.notas && (
@@ -431,6 +604,79 @@ export default function ClienteDetalleDialog({ cliente, onClose }) {
           <Button variant="outline" onClick={onClose}>Cerrar</Button>
         </div>
       </div>
+
+      {/* ─── Create / Edit usuario dialog ──────────────────────────────────── */}
+      {userDialog && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-5">
+            <h3 className="text-lg font-semibold text-slate-900">
+              {userDialog === 'create' ? 'Nuevo Usuario' : 'Editar Usuario'}
+            </h3>
+
+            <div className="space-y-3">
+              <div>
+                <Label htmlFor="u-nombre">Nombre <span className="text-red-500">*</span></Label>
+                <Input
+                  id="u-nombre"
+                  value={userForm.nombre}
+                  onChange={(e) => setUserForm((f) => ({ ...f, nombre: e.target.value }))}
+                  placeholder="Nombre completo"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="u-correo">Correo <span className="text-red-500">*</span></Label>
+                <Input
+                  id="u-correo"
+                  type="email"
+                  value={userForm.correo}
+                  onChange={(e) => setUserForm((f) => ({ ...f, correo: e.target.value }))}
+                  placeholder="correo@empresa.com"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="u-tel">Teléfono</Label>
+                <Input
+                  id="u-tel"
+                  value={userForm.telefono}
+                  onChange={(e) => setUserForm((f) => ({ ...f, telefono: e.target.value }))}
+                  placeholder="(opcional)"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="u-pass">
+                  {userDialog === 'create' ? <>Contraseña <span className="text-red-500">*</span></> : 'Nueva Contraseña (dejar vacío para no cambiar)'}
+                </Label>
+                <Input
+                  id="u-pass"
+                  type="password"
+                  value={userForm.password}
+                  onChange={(e) => setUserForm((f) => ({ ...f, password: e.target.value }))}
+                  placeholder={userDialog === 'create' ? 'Mínimo 6 caracteres' : 'Sin cambios'}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+
+            {userError && <p className="text-sm text-red-600">{userError}</p>}
+
+            <div className="flex gap-2 pt-1">
+              <Button variant="outline" className="flex-1" onClick={closeUserDialog} disabled={userSaving}>
+                Cancelar
+              </Button>
+              <Button
+                className="flex-1 bg-blue-600 hover:bg-blue-700"
+                onClick={handleUserSave}
+                disabled={userSaving}
+              >
+                {userSaving ? 'Guardando...' : 'Guardar'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
