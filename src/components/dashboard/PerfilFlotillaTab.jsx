@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -11,48 +10,13 @@ import { es } from 'date-fns/locale';
 export default function PerfilFlotillaTab() {
   const { data: robots = [], isLoading } = useQuery({
     queryKey: ['robots'],
-    queryFn: () => base44.entities.Robot.list('-created_date'),
-    select: (data) => Array.isArray(data) ? data : []
+    queryFn: async () => {
+      const res = await fetch('/api/robots', { credentials: 'include' });
+      if (!res.ok) throw new Error('Error al cargar robots');
+      return res.json();
+    },
+    select: (data) => Array.isArray(data) ? data : [],
   });
-
-  
-  robots.push({
-    id: 1,
-    modelo: 'PAN-MAQ-1',
-    numero_serie_robot: 'MAQ123',
-    fuente_poder: 'PAN-FUE-1',
-    numero_serie_fuente: 'FUE123',
-    fecha_instalacion: '2026-02-26',
-    celda: 'CEL-123',
-    estado: 'operativo',
-    proximo_mantenimiento: '2027-01-01',
-    ultimo_mantenimiento: '2026-01-01',
-    horas_operacion: 39
-  }, {
-    id: 2,
-    modelo: 'PAN-MAQ-2',
-    numero_serie_robot: 'MAQ124',
-    fuente_poder: 'PAN-FUE-2',
-    numero_serie_fuente: 'FUE124',
-    fecha_instalacion: '2026-02-20',
-    celda: 'CEL-124',
-    estado: 'mantenimiento',
-    proximo_mantenimiento: null,
-    ultimo_mantenimiento: null,
-    horas_operacion: 8
-  }, {
-    id: 3,
-    modelo: 'PAN-MAQ-3',
-    numero_serie_robot: 'MAQ125',
-    fuente_poder: 'PAN-FUE-3',
-    numero_serie_fuente: 'FUE125',
-    fecha_instalacion: '2026-02-21',
-    celda: 'CEL-125',
-    estado: 'operativo',
-    proximo_mantenimiento: '2027-01-01',
-    ultimo_mantenimiento: '2027-01-02',
-    horas_operacion: 48
-  })
 
   const estadoColors = {
     operativo: 'bg-green-100 text-green-800 border-green-200',

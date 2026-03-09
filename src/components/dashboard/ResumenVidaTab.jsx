@@ -1,5 +1,4 @@
 import React from 'react';
-import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -10,8 +9,12 @@ import { es } from 'date-fns/locale';
 export default function ResumenVidaTab() {
   const { data: robots = [], isLoading } = useQuery({
     queryKey: ['robots'],
-    queryFn: () => base44.entities.Robot.list('-horas_operacion'),
-    select: (data) => Array.isArray(data) ? data : []
+    queryFn: async () => {
+      const res = await fetch('/api/robots', { credentials: 'include' });
+      if (!res.ok) throw new Error('Error al cargar robots');
+      return res.json();
+    },
+    select: (data) => Array.isArray(data) ? data : [],
   });
 
   const calcularEdadRobot = (fechaInstalacion) => {
@@ -85,7 +88,7 @@ export default function ResumenVidaTab() {
                       <CardTitle className="flex items-center space-x-2">
                         <span>{robot.marca} {robot.modelo}</span>
                       </CardTitle>
-                      <p className="text-sm text-slate-600 mt-1">S/N: {robot.numero_serie}</p>
+                      <p className="text-sm text-slate-600 mt-1">S/N: {robot.numero_serie_robot}</p>
                     </div>
                     <div className="text-right">
                       <div className={`text-3xl font-bold ${getSaludColor(saludScore)}`}>

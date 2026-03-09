@@ -1,5 +1,4 @@
 import React from 'react';
-import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -9,8 +8,12 @@ import { Package, AlertTriangle } from 'lucide-react';
 export default function RefaccionesTab() {
   const { data: refacciones = [], isLoading } = useQuery({
     queryKey: ['refacciones'],
-    queryFn: () => base44.entities.Refaccion.list('nombre'),
-    select: (data) => Array.isArray(data) ? data : []
+    queryFn: async () => {
+      const res = await fetch('/api/refacciones?take=200', { credentials: 'include' });
+      if (!res.ok) throw new Error('Error al cargar refacciones');
+      return res.json();
+    },
+    select: (res) => Array.isArray(res?.data) ? res.data : [],
   });
 
   const getStockStatus = (refaccion) => {

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
 import { createPageUrl } from '../utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Package, DollarSign, Activity, FileText, AlertCircle, Database, LogOut } from 'lucide-react';
@@ -19,24 +18,32 @@ export default function Dashboard() {
     checkAuth();
   }, []);
 
-  const checkAuth = () => {
-    // Verificar si hay sesión de cliente
-    const isAuth = localStorage.getItem('clientAuth');
-    const username = localStorage.getItem('clientUsername');
-    
-    if (isAuth === 'true' && username) {
-      setUser({ email: username, full_name: 'Cliente' });
-      setLoading(false);
-    } else {
-      // Redirigir a login si no está autenticado
+  const checkAuth = async () => {
+    try {
+      const res = await fetch('/api/auth/me', { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setUser(data.user);
+      } else {
+        window.location.href = createPageUrl('ClientLogin');
+      }
+    } catch {
       window.location.href = createPageUrl('ClientLogin');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('clientAuth');
-    localStorage.removeItem('clientUsername');
-    window.location.href = createPageUrl('Home');
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch {
+      // Ignorar errores de red en logout
+    }
+    window.location.href = createPageUrl('ClientLogin');
   };
 
   if (loading) {
@@ -58,7 +65,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-slate-900">Portal de Cliente</h1>
-              <p className="text-slate-600 mt-1">Bienvenido, {user?.full_name || user?.email}</p>
+              <p className="text-slate-600 mt-1">Bienvenido, {user?.nombre || user?.correo}</p>
             </div>
             <Button
               onClick={handleLogout}

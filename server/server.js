@@ -1,20 +1,39 @@
 // server/server.js
 // Stellaris Automation — Express API Server — ESM
 //
-// POST /api/contact  — Valida con Zod, obtiene token OAuth 2.0
-//                      y envía el correo mediante Microsoft Graph API.
-// GET  /api/health   — Health-check para monitoreo.
+// ── Rutas públicas ────────────────────────────────────────────────────────────
+// POST /api/contact     — Formulario de contacto
+// GET  /api/health      — Health-check para monitoreo
+// POST /api/auth/login  — Autenticación JWT
+//
+// ── Rutas privadas (requieren cookie JWT) ─────────────────────────────────────
+// GET  /api/auth/me       — Datos del usuario autenticado
+// POST /api/auth/logout   — Cierre de sesión
+// GET  /api/robots        — Flotilla de robots del cliente
+// GET  /api/refacciones   — Catálogo de refacciones (búsqueda y paginación)
+// GET  /api/tickets       — Tickets del cliente
+// POST /api/tickets       — Crear nuevo ticket de servicio
 //
 // Requiere Node.js >=18 (fetch nativo disponible desde v18).
 
 import 'dotenv/config';
 import express from 'express';
+import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
+import { authRequired } from './lib/auth.js';
+import authRoutes      from './routes/auth.js';
+import robotRoutes     from './routes/robots.js';
+import refaccionRoutes from './routes/refacciones.js';
+import ticketRoutes    from './routes/tickets.js';
 
 // ─── Startup: validación de variables de entorno ──────────────────────────────
 
-const REQUIRED_ENV = [
+// Críticas: sin estas el servidor no puede funcionar
+const REQUIRED_ENV = ['JWT_SECRET', 'DATABASE_URL'];
+
+// Opcionales en desarrollo: necesarias solo para el formulario de contacto
+const GRAPH_ENV = [
   'MICROSOFT_TENANT_ID',
   'MICROSOFT_CLIENT_ID',
   'MICROSOFT_CLIENT_SECRET',
@@ -30,6 +49,14 @@ if (missingEnv.length > 0) {
     `  Copia server/.env.example → server/.env y rellena los valores.`
   );
   process.exit(1);
+}
+
+const missingGraph = GRAPH_ENV.filter((key) => !process.env[key]);
+if (missingGraph.length > 0) {
+  console.warn(
+    `[startup] AVISO — Variables de Microsoft Graph no configuradas:\n  ${missingGraph.join('\n  ')}\n` +
+    `  El formulario de contacto no enviará emails hasta configurarlas.`
+  );
 }
 
 const {
@@ -57,6 +84,9 @@ app.disable('x-powered-by');
 
 // Body parser — límite de 32 KB para prevenir ataques de payload grande.
 app.use(express.json({ limit: '32kb' }));
+
+// Cookie parser — necesario para leer cookies httpOnly (JWT).
+app.use(cookieParser());
 
 // ─── Middleware: cabeceras de seguridad HTTP ──────────────────────────────────
 
@@ -300,6 +330,19 @@ async function sendMailViaGraph(accessToken, data) {
     );
   }
 }
+
+// ─── Auth middleware y rutas ──────────────────────────────────────────────────
+
+// Middleware JWT — protege todas las rutas /api/* excepto las públicas.
+app.use(authRequired);
+
+// Rutas de autenticación
+app.use('/api/auth', authRoutes);
+
+// Rutas de datos (privadas — protegidas por authRequired)
+app.use('/api', robotRoutes);
+app.use('/api', refaccionRoutes);
+app.use('/api', ticketRoutes);
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 

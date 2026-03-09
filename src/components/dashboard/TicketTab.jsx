@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,7 +11,7 @@ import { FileText, Send } from 'lucide-react';
 export default function TicketTab() {
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
-    robot_numero_serie: '',
+    idRobot: '',
     tipo_servicio: '',
     prioridad: 'media',
     descripcion: '',
@@ -21,28 +20,42 @@ export default function TicketTab() {
 
   const { data: robots = [] } = useQuery({
     queryKey: ['robots'],
-    queryFn: () => base44.entities.Robot.list('marca'),
-    select: (data) => Array.isArray(data) ? data : []
+    queryFn: async () => {
+      const res = await fetch('/api/robots', { credentials: 'include' });
+      if (!res.ok) throw new Error('Error al cargar robots');
+      return res.json();
+    },
+    select: (data) => Array.isArray(data) ? data : [],
   });
 
   const createTicketMutation = useMutation({
-    mutationFn: (data) => base44.entities.Ticket.create({
-      ...data,
-      numero_ticket: `TKT-${Date.now()}`,
-      fecha_creacion: new Date().toISOString().split('T')[0],
-      estado: 'pendiente'
-    }),
-    onSuccess: () => {
+    mutationFn: async (data) => {
+      const res = await fetch('/api/tickets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ ...data, idRobot: Number(data.idRobot) }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? 'Error al crear el ticket');
+      }
+      return res.json();
+    },
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['tickets'] });
       setFormData({
-        robot_numero_serie: '',
+        idRobot: '',
         tipo_servicio: '',
         prioridad: 'media',
         descripcion: '',
         fecha_programada: ''
       });
-      alert('Ticket creado exitosamente');
-    }
+      alert(`Ticket ${result.numero_ticket} creado exitosamente`);
+    },
+    onError: (err) => {
+      alert(`Error: ${err.message}`);
+    },
   });
 
   const handleSubmit = (e) => {
@@ -65,8 +78,8 @@ export default function TicketTab() {
               <div>
                 <Label>Robot (Número de Serie)</Label>
                 <Select
-                  value={formData.robot_numero_serie}
-                  onValueChange={(value) => setFormData({...formData, robot_numero_serie: value})}
+                  value={formData.idRobot}
+                  onValueChange={(value) => setFormData({...formData, idRobot: value})}
                   required
                 >
                   <SelectTrigger>
@@ -74,8 +87,8 @@ export default function TicketTab() {
                   </SelectTrigger>
                   <SelectContent>
                     {robots.map((robot) => (
-                      <SelectItem key={robot.id} value={robot.numero_serie}>
-                        {robot.marca} {robot.modelo} - {robot.numero_serie}
+                      <SelectItem key={robot.id} value={String(robot.id)}>
+                        {robot.marca} {robot.modelo} — {robot.numero_serie_robot}
                       </SelectItem>
                     ))}
                   </SelectContent>

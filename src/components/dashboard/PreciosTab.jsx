@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,16 +9,18 @@ export default function PreciosTab() {
   const [searchTerm, setSearchTerm] = useState('');
   
   const { data: refacciones = [], isLoading } = useQuery({
-    queryKey: ['refacciones'],
-    queryFn: () => base44.entities.Refaccion.list('nombre'),
-    select: (data) => Array.isArray(data) ? data : []
+    queryKey: ['refacciones', searchTerm],
+    queryFn: async () => {
+      const params = new URLSearchParams({ take: '100' });
+      if (searchTerm.trim()) params.set('search', searchTerm.trim());
+      const res = await fetch(`/api/refacciones?${params}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Error al cargar refacciones');
+      return res.json();
+    },
+    select: (res) => Array.isArray(res?.data) ? res.data : [],
   });
 
-  const filteredRefacciones = refacciones.filter(r =>
-    r.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    r.codigo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (r.marca_compatible && r.marca_compatible.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredRefacciones = refacciones;
 
   if (isLoading) {
     return (
@@ -86,7 +87,7 @@ export default function PreciosTab() {
                       </TableCell>
                       <TableCell className="text-sm">{refaccion.marca_compatible || 'Universal'}</TableCell>
                       <TableCell className="text-right font-semibold">
-                        ${refaccion.precio.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {refaccion.moneda}
+                        ${refaccion.precio_venta.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </TableCell>
                       <TableCell className="text-center">
                         {refaccion.stock_disponible > 0 ? (

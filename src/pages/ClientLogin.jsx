@@ -5,25 +5,34 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
 export default function ClientLogin() {
-  const [username, setUsername] = useState('');
+  const [correo, setCorreo] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
 
-    // Validar credenciales
-    if (username === '1' && password === '1') {
-      // Guardar sesión en localStorage
-      localStorage.setItem('clientAuth', 'true');
-      localStorage.setItem('clientUsername', username);
-      // Redirigir al dashboard
-      window.location.href = createPageUrl('Dashboard');
-    } else {
-      setError('Credenciales incorrectas. Por favor intente de nuevo.');
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ correo, password }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        window.location.href = createPageUrl('Dashboard');
+      } else {
+        setError(data.error || 'Credenciales incorrectas. Por favor intente de nuevo.');
+        setIsLoading(false);
+      }
+    } catch (err) {
+      setError('Error de conexión. Verifique su red e intente de nuevo.');
       setIsLoading(false);
     }
   };
@@ -54,13 +63,13 @@ export default function ClientLogin() {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
-                Usuario
+                Correo electrónico
               </label>
               <Input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Usuario"
+                type="email"
+                value={correo}
+                onChange={(e) => setCorreo(e.target.value)}
+                placeholder="correo@empresa.com"
                 required
                 className="w-full"
               />
@@ -108,7 +117,7 @@ export default function ClientLogin() {
           <div className="mt-6 pt-6 border-t border-slate-200">
             <p className="text-sm text-slate-600 text-center">
               ¿Necesita acceso? Contacte a nuestro equipo al{' '}
-              <a href="contacto@stellarisautomation.com" className="text-blue-600 hover:text-blue-700 font-medium">
+              <a href="mailto:contacto@stellarisautomation.com" className="text-blue-600 hover:text-blue-700 font-medium">
                 contacto@stellarisautomation.com
               </a>
             </p>

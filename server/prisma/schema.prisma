@@ -1,0 +1,267 @@
+// Stellaris Automation — Prisma Schema
+// Ejecutar: npx prisma migrate dev --name init
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Tablas de catálogo (ENUMs) ─────────────────────────────────────────────
+
+model Rol {
+  idRol    Int      @id @default(autoincrement()) @map("id_rol")
+  nombre   String   @db.VarChar(50)
+
+  cuentas  Cuenta[]
+  usuarios Usuario[]
+
+  @@map("rol")
+}
+
+model Marca {
+  idMarca      Int       @id @default(autoincrement()) @map("id_marca")
+  marca        String    @db.VarChar(100)
+  activo       Boolean   @default(true)
+  creado       DateTime  @default(now())
+  actualizado  DateTime  @updatedAt @map("actualizado")
+
+  robots       Robot[]
+  fuentes      FuentePoder[]
+  refacciones  Refaccion[]
+
+  @@map("marca")
+}
+
+model EstadoRobot {
+  idEstado Int      @id @default(autoincrement()) @map("id_estado")
+  estado   String   @db.VarChar(50)
+
+  robots   Robot[]
+
+  @@map("estado_robot")
+}
+
+model Prioridad {
+  idPrioridad Int      @id @default(autoincrement()) @map("id_prioridad")
+  prioridad   String   @db.VarChar(50)
+
+  tickets     Ticket[]
+
+  @@map("prioridad")
+}
+
+model TipoSolicitud {
+  idTipoSolicitud Int      @id @default(autoincrement()) @map("id_tipo_solicitud")
+  tipo            String   @db.VarChar(80)
+
+  tickets         Ticket[]
+  mantenimientos  Mantenimiento[]
+
+  @@map("tipo_solicitud")
+}
+
+model EstadoSolicitud {
+  idEstadoSolicitud Int      @id @default(autoincrement()) @map("id_estado_solicitud")
+  estado            String   @db.VarChar(50)
+
+  tickets           Ticket[]
+  mantenimientos    Mantenimiento[]
+
+  @@map("estado_solicitud")
+}
+
+model CategoriaRefaccion {
+  idCategoria Int      @id @default(autoincrement()) @map("id_categoria")
+  nombre      String   @db.VarChar(100)
+
+  refacciones Refaccion[]
+
+  @@map("categoria_refaccion")
+}
+
+// ─── Tablas principales ─────────────────────────────────────────────────────
+
+model Cuenta {
+  idCuenta     Int       @id @default(autoincrement()) @map("id_cuenta")
+  idRol        Int       @map("id_rol")
+  nombre       String    @db.VarChar(120)
+  passwordHash String    @map("password_hash") @db.VarChar(255)
+  correo       String    @unique @db.VarChar(200)
+  activo       Boolean   @default(true)
+  creado       DateTime  @default(now())
+  actualizado  DateTime  @updatedAt @map("actualizado")
+
+  rol          Rol       @relation(fields: [idRol], references: [idRol], onDelete: Restrict)
+  tickets      Ticket[]
+  mantenimientos Mantenimiento[]
+
+  @@map("cuenta")
+}
+
+model Cliente {
+  idCliente    Int       @id @default(autoincrement()) @map("id_cliente")
+  nombre       String    @db.VarChar(200)
+  rfc          String?   @db.VarChar(20)
+  activo       Boolean   @default(true)
+  creado       DateTime  @default(now())
+  actualizado  DateTime  @updatedAt @map("actualizado")
+
+  usuarios     Usuario[]
+  robots       Robot[]
+  ventas       VentaRefaccion[]
+
+  @@map("cliente")
+}
+
+model Usuario {
+  idUsuario    Int       @id @default(autoincrement()) @map("id_usuario")
+  idCliente    Int       @map("id_cliente")
+  idRol        Int       @map("id_rol")
+  nombre       String    @db.VarChar(120)
+  correo       String    @db.VarChar(200)
+  telefono     String?   @db.VarChar(40)
+  activo       Boolean   @default(true)
+  creado       DateTime  @default(now())
+  actualizado  DateTime  @updatedAt @map("actualizado")
+
+  cliente      Cliente   @relation(fields: [idCliente], references: [idCliente], onDelete: Restrict)
+  rol          Rol       @relation(fields: [idRol], references: [idRol], onDelete: Restrict)
+  tickets      Ticket[]
+
+  @@map("usuario")
+}
+
+model FuentePoder {
+  idFuente     Int       @id @default(autoincrement()) @map("id_fuente")
+  idMarca      Int       @map("id_marca")
+  modelo       String    @db.VarChar(100)
+  noSerie      String    @map("no_serie") @db.VarChar(100)
+  activo       Boolean   @default(true)
+  creado       DateTime  @default(now())
+  actualizado  DateTime  @updatedAt @map("actualizado")
+
+  marca        Marca     @relation(fields: [idMarca], references: [idMarca], onDelete: Restrict)
+  robots       Robot[]
+  mantenimientos Mantenimiento[]
+
+  @@map("fuente_poder")
+}
+
+model Robot {
+  idRobot          Int       @id @default(autoincrement()) @map("id_robot")
+  idCliente        Int       @map("id_cliente")
+  idFuente         Int?      @map("id_fuente")
+  idMarca          Int       @map("id_marca")
+  idEstado         Int       @map("id_estado")
+  modelo           String    @db.VarChar(100)
+  noSerie          String    @map("no_serie") @db.VarChar(100)
+  fechaInstalacion DateTime? @map("fecha_instalacion") @db.Date
+  celda            String?   @db.VarChar(50)
+  fechaProxMant    DateTime? @map("fecha_prox_mant") @db.Date
+  horasOperacion   Int       @default(0) @map("horas_operacion")
+  creado           DateTime  @default(now())
+  actualizado      DateTime  @updatedAt @map("actualizado")
+
+  cliente          Cliente      @relation(fields: [idCliente], references: [idCliente], onDelete: Restrict)
+  fuente           FuentePoder? @relation(fields: [idFuente], references: [idFuente], onDelete: SetNull)
+  marca            Marca        @relation(fields: [idMarca], references: [idMarca], onDelete: Restrict)
+  estado           EstadoRobot  @relation(fields: [idEstado], references: [idEstado], onDelete: Restrict)
+  tickets          Ticket[]
+  mantenimientos   Mantenimiento[]
+  ventas           VentaRefaccion[]
+
+  @@map("robot")
+}
+
+model Refaccion {
+  idRefaccion  Int       @id @default(autoincrement()) @map("id_refaccion")
+  idCategoria  Int       @map("id_categoria")
+  idMarca      Int       @map("id_marca")
+  noParte      String    @map("no_parte") @db.VarChar(100)
+  stockActual  Int       @default(0) @map("stock_actual")
+  precioVenta  Decimal   @default(0) @map("precio_venta") @db.Decimal(12, 2)
+  descripcion  String?   @db.Text
+  activo       Boolean   @default(true)
+  creado       DateTime  @default(now())
+  actualizado  DateTime  @updatedAt @map("actualizado")
+
+  categoria    CategoriaRefaccion @relation(fields: [idCategoria], references: [idCategoria], onDelete: Restrict)
+  marca        Marca              @relation(fields: [idMarca], references: [idMarca], onDelete: Restrict)
+  ventas       VentaRefaccion[]
+
+  @@map("refaccion")
+}
+
+model Ticket {
+  idTicket          Int       @id @default(autoincrement()) @map("id_ticket")
+  idCuenta          Int       @map("id_cuenta")
+  idRobot           Int       @map("id_robot")
+  idUsuario         Int       @map("id_usuario")
+  idPrioridad       Int       @map("id_prioridad")
+  idTipoSolicitud   Int       @map("id_tipo_solicitud")
+  idEstadoSolicitud Int       @map("id_estado_solicitud")
+  fechaProgramada   DateTime? @map("fecha_programada") @db.Date
+  detalle           String?   @db.Text
+  creado            DateTime  @default(now())
+  actualizado       DateTime  @updatedAt @map("actualizado")
+
+  cuenta            Cuenta          @relation(fields: [idCuenta], references: [idCuenta], onDelete: Restrict)
+  robot             Robot           @relation(fields: [idRobot], references: [idRobot], onDelete: Restrict)
+  usuario           Usuario         @relation(fields: [idUsuario], references: [idUsuario], onDelete: Restrict)
+  prioridad         Prioridad       @relation(fields: [idPrioridad], references: [idPrioridad], onDelete: Restrict)
+  tipoSolicitud     TipoSolicitud   @relation(fields: [idTipoSolicitud], references: [idTipoSolicitud], onDelete: Restrict)
+  estadoSolicitud   EstadoSolicitud @relation(fields: [idEstadoSolicitud], references: [idEstadoSolicitud], onDelete: Restrict)
+  mantenimientos    Mantenimiento[]
+
+  @@map("ticket")
+}
+
+model Mantenimiento {
+  idMantenimiento   Int       @id @default(autoincrement()) @map("id_mantenimiento")
+  idCuenta          Int       @map("id_cuenta")
+  idTicket          Int       @map("id_ticket")
+  idRobot           Int       @map("id_robot")
+  idFuente          Int?      @map("id_fuente")
+  idTipoSolicitud   Int       @map("id_tipo_solicitud")
+  idEstadoSolicitud Int       @map("id_estado_solicitud")
+  fechaMantenimiento DateTime? @map("fecha_mantenimiento") @db.Date
+  costoTotal        Decimal?  @map("costo_total") @db.Decimal(12, 2)
+  reporte           String?   @db.Text
+  creado            DateTime  @default(now())
+  actualizado       DateTime  @updatedAt @map("actualizado")
+
+  cuenta            Cuenta          @relation(fields: [idCuenta], references: [idCuenta], onDelete: Restrict)
+  ticket            Ticket          @relation(fields: [idTicket], references: [idTicket], onDelete: Restrict)
+  robot             Robot           @relation(fields: [idRobot], references: [idRobot], onDelete: Restrict)
+  fuente            FuentePoder?    @relation(fields: [idFuente], references: [idFuente], onDelete: SetNull)
+  tipoSolicitud     TipoSolicitud   @relation(fields: [idTipoSolicitud], references: [idTipoSolicitud], onDelete: Restrict)
+  estadoSolicitud   EstadoSolicitud @relation(fields: [idEstadoSolicitud], references: [idEstadoSolicitud], onDelete: Restrict)
+  ventas            VentaRefaccion[]
+
+  @@map("mantenimiento")
+}
+
+model VentaRefaccion {
+  idVentaRefaccion Int       @id @default(autoincrement()) @map("id_venta_refaccion")
+  idCliente        Int       @map("id_cliente")
+  idRobot          Int?      @map("id_robot")
+  idRefaccion      Int       @map("id_refaccion")
+  idMantenimiento  Int?      @map("id_mantenimiento")
+  cantidad         Int
+  precioVenta      Decimal   @map("precio_venta") @db.Decimal(12, 2)
+  fechaInstalacion DateTime? @map("fecha_instalacion") @db.Date
+  creado           DateTime  @default(now())
+  actualizado      DateTime  @updatedAt @map("actualizado")
+
+  cliente          Cliente        @relation(fields: [idCliente], references: [idCliente], onDelete: Restrict)
+  robot            Robot?         @relation(fields: [idRobot], references: [idRobot], onDelete: SetNull)
+  refaccion        Refaccion      @relation(fields: [idRefaccion], references: [idRefaccion], onDelete: Restrict)
+  mantenimiento    Mantenimiento? @relation(fields: [idMantenimiento], references: [idMantenimiento], onDelete: SetNull)
+
+  @@map("venta_refaccion")
+}

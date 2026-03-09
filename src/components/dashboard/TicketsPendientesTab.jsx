@@ -1,5 +1,4 @@
 import React from 'react';
-import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,21 +9,23 @@ import { es } from 'date-fns/locale';
 export default function TicketsPendientesTab() {
   const { data: tickets = [], isLoading } = useQuery({
     queryKey: ['tickets'],
-    queryFn: () => base44.entities.Ticket.list('-created_date'),
-    select: (data) => Array.isArray(data) ? data : []
+    queryFn: async () => {
+      const res = await fetch('/api/tickets', { credentials: 'include' });
+      if (!res.ok) throw new Error('Error al cargar tickets');
+      return res.json();
+    },
+    select: (data) => Array.isArray(data) ? data : [],
   });
 
-  const ticketsPendientes = tickets.filter(t => 
-    t.estado !== 'completado' && t.estado !== 'cancelado'
+  const ticketsPendientes = tickets.filter(t =>
+    t.estado !== 'resuelto' && t.estado !== 'cancelado'
   );
 
   const estadoColors = {
-    pendiente: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-    asignado: 'bg-blue-100 text-blue-800 border-blue-200',
-    en_proceso: 'bg-purple-100 text-purple-800 border-purple-200',
-    esperando_refaccion: 'bg-orange-100 text-orange-800 border-orange-200',
-    completado: 'bg-green-100 text-green-800 border-green-200',
-    cancelado: 'bg-slate-100 text-slate-800 border-slate-200'
+    abierto:    'bg-yellow-100 text-yellow-800 border-yellow-200',
+    'en proceso': 'bg-purple-100 text-purple-800 border-purple-200',
+    resuelto:   'bg-green-100 text-green-800 border-green-200',
+    cancelado:  'bg-slate-100 text-slate-800 border-slate-200',
   };
 
   const prioridadColors = {
@@ -109,7 +110,7 @@ export default function TicketsPendientesTab() {
                       </span>
                       <span className="flex items-center space-x-1">
                         <Clock className="w-4 h-4" />
-                        <span>Robot: {ticket.robot_numero_serie}</span>
+                        <span>Robot: {ticket.robot}</span>
                       </span>
                     </div>
                   </div>
