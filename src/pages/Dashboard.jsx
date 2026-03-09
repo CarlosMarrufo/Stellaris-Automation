@@ -144,7 +144,7 @@ export default function Dashboard() {
             <PerfilFlotillaTab />
           </TabsContent>
           <TabsContent value="refacciones">
-            <RefaccionesTab isAdmin={isAdmin} onAddToCart={addToCart} />
+            <RefaccionesTab isAdmin={isAdmin} onAddToCart={isAdmin ? undefined : addToCart} />
           </TabsContent>
           <TabsContent value="cotizacion">
             <CotizacionTab cart={cart} onRemove={removeFromCart} onUpdateQty={updateQty} onClear={clearCart} user={user} />

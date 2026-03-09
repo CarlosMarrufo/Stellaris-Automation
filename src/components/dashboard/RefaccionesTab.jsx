@@ -58,9 +58,8 @@ export default function RefaccionesTab({ isAdmin = false, onAddToCart }) {
   const totalPages  = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const getStockStatus = (stock) => {
-    if (stock === 0) return { color: 'bg-red-100 text-red-800 border-red-200',       text: 'Sin Stock' };
-    if (stock < 5)   return { color: 'bg-yellow-100 text-yellow-800 border-yellow-200', text: 'Bajo Pedido' };
-    return             { color: 'bg-green-100 text-green-800 border-green-200',      text: 'En Stock' };
+    if (stock < 5) return { color: 'bg-yellow-100 text-yellow-800 border-yellow-200', text: 'Bajo Pedido' };
+    return           { color: 'bg-green-100 text-green-800 border-green-200',         text: 'En Stock' };
   };
 
   const handleSearchChange = (e) => { setSearch(e.target.value); setPage(1); };
@@ -162,23 +161,14 @@ export default function RefaccionesTab({ isAdmin = false, onAddToCart }) {
                   <TableHead>Categoría</TableHead>
                   <TableHead>Marca</TableHead>
                   <TableHead className="text-right">Precio Ref.</TableHead>
-                  {isAdmin ? (
-                    <>
-                      <TableHead className="text-center">Stock</TableHead>
-                      <TableHead className="text-center">Estado</TableHead>
-                    </>
-                  ) : (
-                    <>
-                      <TableHead className="text-center">Disponibilidad</TableHead>
-                      {onAddToCart && <TableHead className="text-center">Cotizar</TableHead>}
-                    </>
-                  )}
+                  <TableHead className="text-center">Stock</TableHead>
+                  {onAddToCart && <TableHead className="text-center">Cotizar</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {refacciones.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={isAdmin ? 7 : onAddToCart ? 7 : 6} className="text-center py-8 text-slate-500">
+                    <TableCell colSpan={onAddToCart ? 7 : 6} className="text-center py-8 text-slate-500">
                       No se encontraron resultados
                     </TableCell>
                   </TableRow>
@@ -194,43 +184,32 @@ export default function RefaccionesTab({ isAdmin = false, onAddToCart }) {
                         <TableCell className="text-right font-semibold text-sm">
                           ${r.precio_venta.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                         </TableCell>
-                        {isAdmin ? (
-                          <>
-                            <TableCell className="text-center">
-                              <span className={`font-bold ${
-                                r.stock_disponible === 0 ? 'text-red-600' :
-                                r.stock_disponible < 5  ? 'text-yellow-600' : 'text-green-600'
-                              }`}>
-                                {r.stock_disponible}
-                              </span>
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <Badge variant="outline" className={`${status.color} border`}>
-                                {status.text}
-                              </Badge>
-                            </TableCell>
-                          </>
-                        ) : (
-                          <>
-                            <TableCell className="text-center">
-                              <Badge variant="outline" className={`${status.color} border`}>
-                                {status.text}
-                              </Badge>
-                            </TableCell>
-                            {onAddToCart && (
-                              <TableCell className="text-center">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-blue-600 border-blue-200 hover:bg-blue-50"
-                                  onClick={() => openDialog(r)}
-                                >
-                                  <ShoppingCart className="w-3.5 h-3.5 mr-1" />
-                                  Agregar
-                                </Button>
-                              </TableCell>
-                            )}
-                          </>
+                        <TableCell className="text-center">
+                          {isAdmin ? (
+                            <span className={`font-bold ${
+                              r.stock_disponible === 0 ? 'text-red-600' :
+                              r.stock_disponible < 5  ? 'text-yellow-600' : 'text-green-600'
+                            }`}>
+                              {r.stock_disponible}
+                            </span>
+                          ) : (
+                            <Badge variant="outline" className={`${status.color} border`}>
+                              {status.text}
+                            </Badge>
+                          )}
+                        </TableCell>
+                        {onAddToCart && (
+                          <TableCell className="text-center">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                              onClick={() => openDialog(r)}
+                            >
+                              <ShoppingCart className="w-3.5 h-3.5 mr-1" />
+                              Agregar
+                            </Button>
+                          </TableCell>
                         )}
                       </TableRow>
                     );
