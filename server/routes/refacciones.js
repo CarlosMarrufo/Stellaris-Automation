@@ -1,31 +1,58 @@
 // server/routes/refacciones.js
-// GET /api/refacciones — Catálogo de refacciones con búsqueda y paginación.
-//
-// Query params:
-//   search    — filtra por noParte o descripcion (LIKE %search%)
-//   categoria — id de categoría (número)
-//   skip      — registros a omitir (paginación, default 0)
-//   take      — registros a retornar (default 50, máx 200)
-//
-// Respuesta: { data: [...], total: N }
+// GET /api/refacciones  — Catálogo con búsqueda, filtros y paginación
+// GET /api/marcas       — Lista de marcas para filtros
+// GET /api/categorias   — Lista de categorías para filtros
 
 import { Router } from 'express';
 import prisma from '../lib/prisma.js';
 
 const router = Router();
 
-// ─── GET /api/refacciones ────────────────────────────────────────────────────
+// ─── GET /api/marcas ──────────────────────────────────────────────────────
+
+router.get('/marcas', async (_req, res) => {
+  try {
+    const marcas = await prisma.marca.findMany({
+      where:   { activo: true },
+      select:  { idMarca: true, marca: true },
+      orderBy: { marca: 'asc' },
+    });
+    return res.json(marcas);
+  } catch (err) {
+    console.error('[api/marcas]', err instanceof Error ? err.message : String(err));
+    return res.status(500).json({ error: 'Error al obtener marcas' });
+  }
+});
+
+// ─── GET /api/categorias ──────────────────────────────────────────────────
+
+router.get('/categorias', async (_req, res) => {
+  try {
+    const cats = await prisma.categoriaRefaccion.findMany({
+      select:  { idCategoria: true, nombre: true },
+      orderBy: { nombre: 'asc' },
+    });
+    return res.json(cats);
+  } catch (err) {
+    console.error('[api/categorias]', err instanceof Error ? err.message : String(err));
+    return res.status(500).json({ error: 'Error al obtener categorías' });
+  }
+});
+
+// ─── GET /api/refacciones ─────────────────────────────────────────────────
 
 router.get('/refacciones', async (req, res) => {
   try {
     const search    = String(req.query.search    ?? '').trim();
     const categoria = req.query.categoria ? parseInt(req.query.categoria, 10) : undefined;
+    const marca     = req.query.marca     ? parseInt(req.query.marca, 10)     : undefined;
     const skip      = Math.max(0, parseInt(req.query.skip ?? '0', 10));
-    const take      = Math.min(200, Math.max(1, parseInt(req.query.take ?? '50', 10)));
+    const take      = Math.min(200, Math.max(1, parseInt(req.query.take ?? '20', 10)));
 
     const where = {
       activo: true,
       ...(categoria && !isNaN(categoria) ? { idCategoria: categoria } : {}),
+      ...(marca     && !isNaN(marca)     ? { idMarca: marca }         : {}),
       ...(search ? {
         OR: [
           { noParte:     { contains: search } },
@@ -48,7 +75,6 @@ router.get('/refacciones', async (req, res) => {
       prisma.refaccion.count({ where }),
     ]);
 
-    // Normalizar al shape que esperan los componentes del dashboard
     const result = data.map((r) => ({
       id:               r.idRefaccion,
       codigo:           r.noParte,
@@ -56,7 +82,7 @@ router.get('/refacciones', async (req, res) => {
       categoria:        r.categoria.nombre,
       marca_compatible: r.marca.marca,
       stock_disponible: r.stockActual,
-      stock_minimo:     0,          // sin mínimo definido por ahora
+      stock_minimo:     0,
       precio_venta:     Number(r.precioVenta),
       disponible:       r.stockActual > 0,
     }));

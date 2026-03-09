@@ -99,6 +99,7 @@ model Cuenta {
   rol          Rol       @relation(fields: [idRol], references: [idRol], onDelete: Restrict)
   tickets      Ticket[]
   mantenimientos Mantenimiento[]
+  cotizaciones Cotizacion[]
 
   @@map("cuenta")
 }
@@ -193,6 +194,7 @@ model Refaccion {
   categoria    CategoriaRefaccion @relation(fields: [idCategoria], references: [idCategoria], onDelete: Restrict)
   marca        Marca              @relation(fields: [idMarca], references: [idMarca], onDelete: Restrict)
   ventas       VentaRefaccion[]
+  cotizacionItems CotizacionItem[]
 
   @@map("refaccion")
 }
@@ -264,4 +266,31 @@ model VentaRefaccion {
   mantenimiento    Mantenimiento? @relation(fields: [idMantenimiento], references: [idMantenimiento], onDelete: SetNull)
 
   @@map("venta_refaccion")
+}
+
+model Cotizacion {
+  idCotizacion Int      @id @default(autoincrement()) @map("id_cotizacion")
+  idCuenta     Int      @map("id_cuenta")
+  estado       String   @default("pendiente") @db.VarChar(20)
+  notas        String?  @db.Text
+  creado       DateTime @default(now())
+  actualizado  DateTime @updatedAt @map("actualizado")
+
+  cuenta Cuenta           @relation(fields: [idCuenta], references: [idCuenta], onDelete: Restrict)
+  items  CotizacionItem[]
+
+  @@map("cotizacion")
+}
+
+model CotizacionItem {
+  idItem       Int     @id @default(autoincrement()) @map("id_item")
+  idCotizacion Int     @map("id_cotizacion")
+  idRefaccion  Int     @map("id_refaccion")
+  cantidad     Int
+  precioRef    Decimal @map("precio_ref") @db.Decimal(12, 2)
+
+  cotizacion Cotizacion @relation(fields: [idCotizacion], references: [idCotizacion], onDelete: Cascade)
+  refaccion  Refaccion  @relation(fields: [idRefaccion], references: [idRefaccion], onDelete: Restrict)
+
+  @@map("cotizacion_item")
 }

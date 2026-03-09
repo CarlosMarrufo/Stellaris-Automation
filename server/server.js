@@ -11,8 +11,13 @@
 // POST /api/auth/logout   — Cierre de sesión
 // GET  /api/robots        — Flotilla de robots del cliente
 // GET  /api/refacciones   — Catálogo de refacciones (búsqueda y paginación)
+// GET  /api/marcas         — Lista de marcas
+// GET  /api/categorias     — Lista de categorías
 // GET  /api/tickets       — Tickets del cliente
 // POST /api/tickets       — Crear nuevo ticket de servicio
+// GET  /api/cotizaciones   — Cotizaciones del cliente
+// POST /api/cotizaciones   — Crear solicitud de cotización
+// PATCH /api/cotizaciones/:id — Admin: actualizar estado de cotización
 //
 // Requiere Node.js >=18 (fetch nativo disponible desde v18).
 
@@ -22,10 +27,12 @@ import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
 import { authRequired } from './lib/auth.js';
-import authRoutes      from './routes/auth.js';
-import robotRoutes     from './routes/robots.js';
-import refaccionRoutes from './routes/refacciones.js';
-import ticketRoutes    from './routes/tickets.js';
+import { getGraphToken, sendMailViaGraph, esc, graphConfigured } from './lib/graph.js';
+import authRoutes        from './routes/auth.js';
+import robotRoutes       from './routes/robots.js';
+import refaccionRoutes   from './routes/refacciones.js';
+import ticketRoutes      from './routes/tickets.js';
+import cotizacionRoutes  from './routes/cotizaciones.js';
 
 // ─── Startup: validación de variables de entorno ──────────────────────────────
 
@@ -128,56 +135,7 @@ const contactSchema = z.object({
   descripcion: z.string().max(2000).optional().default(''),
 });
 
-// ─── Microsoft Graph: token ───────────────────────────────────────────────────
-
-/**
- * Obtiene un access_token mediante OAuth 2.0 Client Credentials Flow.
- * Requiere permiso de aplicación Mail.Send con Admin Consent otorgado.
- * @returns {Promise<string>}
- */
-async function getGraphToken() {
-  const params = new URLSearchParams({
-    grant_type:    'client_credentials',
-    client_id:     MICROSOFT_CLIENT_ID,
-    client_secret: MICROSOFT_CLIENT_SECRET,
-    scope:         'https://graph.microsoft.com/.default',
-  });
-
-  const response = await fetch(
-    `https://login.microsoftonline.com/${MICROSOFT_TENANT_ID}/oauth2/v2.0/token`,
-    {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body:    params.toString(),
-    }
-  );
-
-  if (!response.ok) {
-    const payload = await response.json().catch(() => ({}));
-    throw new Error(
-      `Token request failed (${response.status}): ` +
-      (payload.error_description ?? payload.error ?? 'unknown')
-    );
-  }
-
-  const { access_token } = await response.json();
-  return access_token;
-}
-
 // ─── Email HTML builder ───────────────────────────────────────────────────────
-
-/**
- * Escapa caracteres HTML para prevenir XSS en el cuerpo del correo.
- * @param {string} s
- * @returns {string}
- */
-function esc(s) {
-  return String(s ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
 
 /**
  * Genera el HTML del correo de notificación interna.
@@ -278,59 +236,6 @@ function buildEmailHtml(data) {
 </html>`;
 }
 
-// ─── Microsoft Graph: sendMail ────────────────────────────────────────────────
-
-/**
- * Envía el correo de notificación a través de Microsoft Graph sendMail.
- * Usa saveToSentItems para que quede registro en el buzón corporativo.
- * @param {string} accessToken
- * @param {z.infer<typeof contactSchema>} data
- */
-async function sendMailViaGraph(accessToken, data) {
-  const subject =
-    `[Stellaris] Solicitud técnica — ${data.nombre}` +
-    (data.empresa ? ` · ${data.empresa}` : '');
-
-  const payload = {
-    message: {
-      subject,
-      body: {
-        contentType: 'HTML',
-        content:     buildEmailHtml(data),
-      },
-      toRecipients: [
-        { emailAddress: { address: MICROSOFT_RECIPIENT_EMAIL } },
-      ],
-      // Reply-To apunta al correo del solicitante para respuestas directas.
-      replyTo: data.correo
-        ? [{ emailAddress: { name: data.nombre, address: data.correo } }]
-        : [],
-    },
-    saveToSentItems: true,
-  };
-
-  const response = await fetch(
-    `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(MICROSOFT_SENDER_EMAIL)}/sendMail`,
-    {
-      method:  'POST',
-      headers: {
-        Authorization:  `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    }
-  );
-
-  // Graph devuelve 202 Accepted en éxito.
-  if (!response.ok) {
-    const errorBody = await response.json().catch(() => ({}));
-    throw new Error(
-      `Graph sendMail failed (${response.status}): ` +
-      (errorBody.error?.message ?? 'unknown')
-    );
-  }
-}
-
 // ─── Auth middleware y rutas ──────────────────────────────────────────────────
 
 // Middleware JWT — protege todas las rutas /api/* excepto las públicas.
@@ -343,6 +248,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api', robotRoutes);
 app.use('/api', refaccionRoutes);
 app.use('/api', ticketRoutes);
+app.use('/api', cotizacionRoutes);
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
@@ -366,7 +272,17 @@ app.post('/api/contact', contactLimiter, async (req, res) => {
   // 2. Token + envío
   try {
     const token = await getGraphToken();
-    await sendMailViaGraph(token, parsed.data);
+    const subject =
+      `[Stellaris] Solicitud técnica — ${parsed.data.nombre}` +
+      (parsed.data.empresa ? ` · ${parsed.data.empresa}` : '');
+    await sendMailViaGraph(token, {
+      to:      MICROSOFT_RECIPIENT_EMAIL,
+      replyTo: parsed.data.correo
+        ? { name: parsed.data.nombre, address: parsed.data.correo }
+        : null,
+      subject,
+      html: buildEmailHtml(parsed.data),
+    });
     return res.status(200).json({ success: true });
   } catch (err) {
     // El mensaje real va solo al log del servidor — nunca al cliente.
