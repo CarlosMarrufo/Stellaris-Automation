@@ -317,6 +317,107 @@ router.get('/admin/clientes/:id', async (req, res) => {
   }
 });
 
+// ─── GET /api/admin/tickets ──────────────────────────────────────────────────
+
+router.get('/admin/tickets', async (_req, res) => {
+  try {
+    const tickets = await prisma.ticket.findMany({
+      include: {
+        robot:           { select: { modelo: true, noSerie: true, cliente: { select: { idCliente: true, nombre: true } } } },
+        cuenta:          { select: { nombre: true, correo: true } },
+        tipoSolicitud:   { select: { tipo: true } },
+        prioridad:       { select: { prioridad: true } },
+        estadoSolicitud: { select: { estado: true, idEstadoSolicitud: true } },
+      },
+      orderBy: { creado: 'desc' },
+      take: 500,
+    });
+
+    const result = tickets.map((t) => ({
+      id:                t.idTicket,
+      numero:            `TKT-${String(t.idTicket).padStart(5, '0')}`,
+      cliente:           t.robot.cliente.nombre,
+      idCliente:         t.robot.cliente.idCliente,
+      robot:             `${t.robot.modelo} — ${t.robot.noSerie}`,
+      solicitante:       t.cuenta.nombre,
+      correo:            t.cuenta.correo,
+      tipo:              t.tipoSolicitud.tipo,
+      prioridad:         t.prioridad.prioridad,
+      estado:            t.estadoSolicitud.estado,
+      idEstadoSolicitud: t.estadoSolicitud.idEstadoSolicitud,
+      fecha:             t.creado.toISOString().split('T')[0],
+      fechaProgramada:   t.fechaProgramada ? t.fechaProgramada.toISOString().split('T')[0] : null,
+      detalle:           t.detalle ?? '',
+    }));
+
+    return res.json(result);
+  } catch (err) {
+    console.error('[admin/tickets GET]', err instanceof Error ? err.message : String(err));
+    return res.status(500).json({ error: 'Error al obtener tickets' });
+  }
+});
+
+// ─── GET /api/admin/cotizaciones ────────────────────────────────────────────
+
+router.get('/admin/cotizaciones', async (_req, res) => {
+  try {
+    const cotizaciones = await prisma.cotizacion.findMany({
+      include: {
+        cuenta: { select: { nombre: true, correo: true } },
+        items: {
+          include: {
+            refaccion: { select: { noParte: true, descripcion: true } },
+          },
+        },
+      },
+      orderBy: { creado: 'desc' },
+      take: 500,
+    });
+
+    // Resolve client name via cuenta.correo → usuario.idCliente → cliente.nombre
+    const correos = [...new Set(cotizaciones.map((c) => c.cuenta.correo))];
+    const usuarios = correos.length > 0
+      ? await prisma.usuario.findMany({
+          where:   { correo: { in: correos } },
+          select:  { correo: true, idCliente: true, cliente: { select: { nombre: true } } },
+        })
+      : [];
+    const clienteByCorreo = Object.fromEntries(
+      usuarios.map((u) => [u.correo, { idCliente: u.idCliente, nombre: u.cliente.nombre }])
+    );
+
+    const result = cotizaciones.map((c) => {
+      const total = c.items.reduce((sum, i) => sum + i.cantidad * Number(i.precioRef), 0);
+      const cli = clienteByCorreo[c.cuenta.correo];
+      return {
+        id:          c.idCotizacion,
+        folio:       `COT-${String(c.idCotizacion).padStart(5, '0')}`,
+        cliente:     cli?.nombre ?? '—',
+        idCliente:   cli?.idCliente ?? null,
+        solicitante: c.cuenta.nombre,
+        correo:      c.cuenta.correo,
+        fecha:       c.creado.toISOString().split('T')[0],
+        estado:      c.estado,
+        notas:       c.notas ?? '',
+        total,
+        items: c.items.map((i) => ({
+          id:          i.idItem,
+          codigo:      i.refaccion.noParte,
+          descripcion: i.refaccion.descripcion ?? i.refaccion.noParte,
+          cantidad:    i.cantidad,
+          precioRef:   Number(i.precioRef),
+          subtotal:    i.cantidad * Number(i.precioRef),
+        })),
+      };
+    });
+
+    return res.json(result);
+  } catch (err) {
+    console.error('[admin/cotizaciones GET]', err instanceof Error ? err.message : String(err));
+    return res.status(500).json({ error: 'Error al obtener cotizaciones' });
+  }
+});
+
 // ─── PATCH /api/admin/refacciones/:id ────────────────────────────────────────
 
 router.patch('/admin/refacciones/:id', async (req, res) => {

@@ -1,10 +1,12 @@
 import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { LogOut, Users, Package } from 'lucide-react';
+import { LogOut, Users, Package, FileText, ClipboardList } from 'lucide-react';
 
-import ClientesTab       from './ClientesTab';
-import RefaccionesAdminTab from './RefaccionesAdminTab';
+import ClientesTab          from './ClientesTab';
+import RefaccionesAdminTab  from './RefaccionesAdminTab';
+import TicketsAdminTab      from './TicketsAdminTab';
+import CotizacionesAdminTab from './CotizacionesAdminTab';
 
 export default function AdminPanel({ user, onLogout }) {
   return (
@@ -37,6 +39,14 @@ export default function AdminPanel({ user, onLogout }) {
               <Package className="w-4 h-4" />
               <span>Refacciones</span>
             </TabsTrigger>
+            <TabsTrigger value="tickets" className="flex items-center gap-2 py-2.5 px-4">
+              <FileText className="w-4 h-4" />
+              <span>Tickets</span>
+            </TabsTrigger>
+            <TabsTrigger value="cotizaciones" className="flex items-center gap-2 py-2.5 px-4">
+              <ClipboardList className="w-4 h-4" />
+              <span>Cotizaciones</span>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="clientes">
@@ -44,6 +54,12 @@ export default function AdminPanel({ user, onLogout }) {
           </TabsContent>
           <TabsContent value="refacciones">
             <RefaccionesAdminTab />
+          </TabsContent>
+          <TabsContent value="tickets">
+            <TicketsAdminTab />
+          </TabsContent>
+          <TabsContent value="cotizaciones">
+            <CotizacionesAdminTab />
           </TabsContent>
         </Tabs>
       </div>
